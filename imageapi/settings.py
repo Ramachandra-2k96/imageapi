@@ -38,8 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'upload',
-        'rest_framework',
-     'corsheaders',
+    'rest_framework',
+    'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
 ]
 CORS_ALLOW_ALL_ORIGINS = True 
