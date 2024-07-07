@@ -11,7 +11,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array,load_img
 import io
 
-# Load your TensorFlow model
+# Load your TensorFlow
 model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3.keras")
 model = load_model(model_path, compile=False)
 
