@@ -1,18 +1,25 @@
 import os
+import io
 import cv2
 import numpy as np
 from django.conf import settings
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import generics
+from django.http import JsonResponse
+from .serializers import UserSerializer
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+from rest_framework.response import Response
 from tensorflow.keras.models import load_model
+from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from tensorflow.keras.preprocessing.image import img_to_array,load_img
-import io
 
 # Load your TensorFlow
-model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3.keras")
+model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3_4.keras")
 model = load_model(model_path, compile=False)
 
 @api_view(['POST'])
@@ -33,52 +40,65 @@ def upload_image(request):
 
 
 def preprocess_image(image_path):
-    # Load the image in grayscale
+    # Load the image in grayscale and resize it to (128, 128)
     img = load_img(image_path, color_mode='grayscale', target_size=(128, 128))
+    
+    # Convert the image to a numpy array of type 'uint8'
     img = img_to_array(img).astype('uint8')
     
-    # Apply edge detection
-    edges = cv2.Canny(img, threshold1=30, threshold2=100)
+    # Apply Gaussian Blur to the image to reduce noise
+    blurred = cv2.GaussianBlur(img, (3, 3), 1)
     
-    # Dilate the edges to broaden the lines
-    kernel = np.ones((3,3), np.uint8)
-    edges = cv2.dilate(edges, kernel, iterations=1)
+    # Apply Canny edge detection to detect edges in the image
+    edges = cv2.Canny(blurred, threshold1=70, threshold2=100)
+    
+    # Dilate the edges to thicken the detected edges
+    kernel = np.ones((2, 2), np.uint8)
+    edges = cv2.dilate(edges, kernel, iterations=2)
     
     # Invert the edges: detected edges should be black, and the rest should be white
     edges = cv2.bitwise_not(edges)
     
-    # Normalize the image
+    # Normalize the image pixel values to be between 0 and 1
     edges = edges / 255.0
+    
+    # Add a channel dimension to the image
     edges = np.expand_dims(edges, axis=-1)
     
     return edges
+
+
 def preprocess_image1(image_path):
+    # Preprocess the image using existing preprocess_image function
     processed_img = preprocess_image(image_path)
+    
+    # Normalize pixel values to [0, 1]
     processed_img = processed_img / 255.0
+    
+    # Reshape the image to match model input shape
     processed_img = processed_img.reshape(1, 128, 128, 1)
+    
     return processed_img
 
 def predict_signature(model, real_signature_path, test_signature_path):
+    # Preprocess real and test signatures
     real_img = preprocess_image1(real_signature_path)
     test_img = preprocess_image1(test_signature_path)
     
+    # Predict probabilities for real and test signatures
     real_pred = model.predict(real_img)
     test_pred = model.predict(test_img)
     
+    # Calculate absolute difference in predictions
     difference = np.abs(real_pred - test_pred)
-    return difference*100
+    
+    # Scale the difference for better interpretation
+    difference_scaled = difference * 100
+    
+    return difference_scaled
+
 
 #Login part
-from django.contrib.auth.models import User
-from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
-
 class UserDetailsView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
