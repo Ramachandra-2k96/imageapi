@@ -2,6 +2,7 @@ import os
 import io
 import cv2
 import numpy as np
+import tensorflow as tf
 from django.conf import settings
 from rest_framework import status
 from rest_framework import generics
@@ -19,8 +20,13 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from tensorflow.keras.preprocessing.image import img_to_array,load_img
 
 # Load your TensorFlow
-model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3_4.keras")
-model = load_model(model_path, compile=False)
+# model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3_4.keras")
+# model = load_model(model_path, compile=False)
+
+# Path to the SavedModel directory
+saved_model_path = os.path.join(settings.BASE_DIR, "enhanced_signature_verification_model3_41")
+# Load the SavedModel in TensorFlow 1.15
+model = tf.saved_model.load(saved_model_path)
 
 @api_view(['POST'])
 @parser_classes([MultiPartParser])
